@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { useCanvas } from '../../utils/useCanvas';
 import pizza from '../../images/pizza.jpg';
 
 const Canvas = () => {
-    const { canvasRef, imageRef, text, setText } = useCanvas();
+    const { canvasRef, imageRef, text, setText, setSelectedImg } = useCanvas();
     // const [text, setText] = useState("line 1\nline2\nline3\n");
 
     // useEffect(() => {
@@ -39,12 +39,23 @@ const Canvas = () => {
     //     ctx.drawImage(img, 0, 0);
     // }
 
+    const downloadImage = (uri, name) => {
+        let canvas = canvasRef.current;
+        var link = document.createElement("a");
+        link.download = 'preview';
+        link.href = canvas.toDataURL();
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        link = null;
+    }
+
     return (
         <div style={{ position: "relative" }}>
             {/* canvas container */}
             <div>
                 <canvas ref={canvasRef} width={840} height={425} />
-                <img ref={imageRef} src={pizza} className="hidden" />
+                <img ref={imageRef} src={pizza} className="hidden" alt='default' />
             </div>
             {/* controller */}
             <div>
@@ -55,6 +66,9 @@ const Canvas = () => {
                     onChange={e => {
                         setText(e.target.value);
                     }} />
+                {/* <button onClick={() => {addTextArea(canvasRef.current)}}>Add Text</button> */}
+                <input type="file" onChange={(e) => {setSelectedImg(e.target.files[0])}}/>
+                <button onClick={() => downloadImage()}>Dowload</button>
             </div>
         </div>
     )

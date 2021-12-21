@@ -51,14 +51,14 @@ const Canvas = () => {
     }
 
     return (
-        <div style={{ position: "relative" }}>
+        <div className='bg-[#edf0f2] relative h-full px-16 py-5'>
             {/* canvas container */}
-            <div>
-                <canvas ref={canvasRef} width={840} height={425} />
+            <div className=''>
+                <canvas className='bg-white shadow-md' ref={canvasRef} width={840} height={425} />
                 <img ref={imageRef} src={pizza} className="hidden" alt='default' />
             </div>
             {/* controller */}
-            <div>
+            <div className='mt-20'>
                 <textarea
                     style={{ position: "absolute", top: "20px", right: "200px" }}
                     rows={10}

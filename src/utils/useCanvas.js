@@ -18,6 +18,7 @@ var imageWidth, imageHeight, imageRight, imageBottom;
 var draggingImage = false;
 var startX;
 var startY;
+var withAnchors, withBorders;
 
 export function useCanvas() {
     const canvasRef = useRef(null);
@@ -27,27 +28,27 @@ export function useCanvas() {
 
     useEffect(() => {
         if (selectedImg === null) {
-            const canvas = canvasRef.current;
-            let img = imageRef.current;
+            // const canvas = canvasRef.current;
+            // let img = imageRef.current;
 
-            canvas.crossOrigin = "Anonymous";
-            const ctx = canvas.getContext('2d');
+            // canvas.crossOrigin = "Anonymous";
+            // const ctx = canvas.getContext('2d');
 
-            console.log('useCanvas ', canvas, ctx, img, text);
+            // console.log('useCanvas ', canvas, ctx, img, text);
 
-            img.onload = () => {
-                // canvas.width = Math.min(canvas.width, img.width);
-                // canvas.height = Math.min(canvas.height, img.height);
-                let ctx = canvas.getContext('2d');
-                // drawImage(img, ctx, canvas);
-                var offsetX = 0.5;   // center x
-                var offsetY = 0.5;   // center y
-                drawImage(ctx, img, 0, 0, canvas.width, canvas.height, offsetX, offsetY);
-                drawText(ctx, text);
+            // img.onload = () => {
+            //     // canvas.width = Math.min(canvas.width, img.width);
+            //     // canvas.height = Math.min(canvas.height, img.height);
+            //     let ctx = canvas.getContext('2d');
+            //     // drawImage(img, ctx, canvas);
+            //     var offsetX = 0.5;   // center x
+            //     var offsetY = 0.5;   // center y
+            //     drawImage(ctx, img, 0, 0, canvas.width, canvas.height, offsetX, offsetY);
+            //     drawText(ctx, text);
 
-            };
+            // };
 
-            drawText(ctx, text);
+            // drawText(ctx, text);
         } else {
             var reader = new FileReader();
             var img = "";
@@ -62,13 +63,16 @@ export function useCanvas() {
                     var offsetX = canvas.offsetX;   // center x
                     var offsetY = canvas.offsetY;   // center y
 
-                    imageWidth = img.width;
-                    imageHeight = img.height;
+                    imageWidth = Math.min(canvas.width - (imageX * 2), img.width);
+                    imageHeight = Math.min(canvas.height - (imageY * 2), img.height);
+
+                    // imageWidth = img.width;
+                    // imageHeight = img.height;
                     imageRight = imageX + imageWidth;
                     imageBottom = imageY + imageHeight;
 
-                    draw(true, true, img, canvas, ctx);
-
+                    draw(img, canvas, ctx);
+                    drawText(ctx, text);
                     // canvas.mousedown = (e) => {
                     //     console.log(e);
                     // }
@@ -78,7 +82,7 @@ export function useCanvas() {
                     });
                     canvas.addEventListener('mousemove', (e) => {
                         // console.log('mouse move');
-                        handleMouseMove(e, canvas.offsetLeft, canvas.offsetTop, canvas, ctx, img);
+                        handleMouseMove(e, canvas.offsetLeft, canvas.offsetTop, canvas, ctx, img, text);
                     });
                     canvas.addEventListener('mouseup', (e) => {
                         console.log('mouse up');
@@ -104,7 +108,6 @@ export function useCanvas() {
                     };
 
                     // drawImage(ctx, img, 0, 0, canvas.width-20, canvas.height-20, offsetX, offsetY);
-                    // drawText(ctx, text);
                 }
                 img.src = event.target.result;
             }
@@ -119,12 +122,25 @@ export function useCanvas() {
     return { canvasRef, imageRef, text, setText, setSelectedImg, addTextArea };
 }
 
-function draw(withAnchors, withBorders, img, canvas, ctx) {
+function draw(img, canvas, ctx) {
     // clear the canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // draw the image
     ctx.drawImage(img, 0, 0, img.width, img.height, imageX, imageY, imageWidth, imageHeight);
+
+    // optionally draw the connecting anchor lines
+    if (withBorders) {
+        ctx.beginPath();
+        ctx.moveTo(imageX, imageY);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#07c6d6";
+        ctx.lineTo(imageRight, imageY);
+        ctx.lineTo(imageRight, imageBottom);
+        ctx.lineTo(imageX, imageBottom);
+        ctx.closePath();
+        ctx.stroke();
+    }
 
     // optionally draw the draggable anchors
     if (withAnchors) {
@@ -132,26 +148,72 @@ function draw(withAnchors, withBorders, img, canvas, ctx) {
         drawDragAnchor(imageRight, imageY, ctx);
         drawDragAnchor(imageRight, imageBottom, ctx);
         drawDragAnchor(imageX, imageBottom, ctx);
+        // drawDragAnchor(imageX, (imageBottom + imageY) / 2, ctx);
+        // drawDragAnchor(imageRight, (imageBottom + imageY) / 2, ctx);
+        drawDragLine(imageX, (imageBottom + imageY) / 2, ctx);
+        drawDragLine(imageRight, (imageBottom + imageY) / 2, ctx);
+        drawDragLine(imageX+((imageRight-imageX)/2), imageY-5, ctx);
+        drawDragLine(imageX+((imageRight-imageX)/2), imageBottom-5, ctx);
     }
+}
 
-    // optionally draw the connecting anchor lines
-    if (withBorders) {
-        ctx.beginPath();
-        ctx.moveTo(imageX, imageY);
-        ctx.lineTo(imageRight, imageY);
-        ctx.lineTo(imageRight, imageBottom);
-        ctx.lineTo(imageX, imageBottom);
-        ctx.closePath();
-        ctx.stroke();
-    }
+function drawDragLine(x, y, ctx) {
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineWidth = 10;
+    ctx.strokeStyle = "#07c6d6";
+    ctx.lineTo(x, y + 10);
+    ctx.closePath();
+    ctx.stroke();
 }
 
 function drawDragAnchor(x, y, ctx) {
     ctx.beginPath();
-    ctx.fillStyle = "#000"
+    ctx.fillStyle = "#fff"
     ctx.arc(x, y, resizerRadius, 0, pi2, false);
     ctx.closePath();
     ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "#07c6d6";
+    ctx.stroke();
+}
+
+function mouseOverBorders(x, y, ctx) {
+    if (
+        (Math.abs(x - imageX) <= 2 && (y >= imageY && y <= imageBottom) && withAnchors) ||
+        (Math.abs(x - imageRight) <= 2) && (y >= imageY && y <= imageBottom) && withAnchors) {
+        document.body.style.cursor = 'col-resize';
+    } else if (Math.abs(y - imageY) <= 2 && withAnchors) {
+        document.body.style.cursor = 'ns-resize';
+    } else if (Math.abs(y - imageBottom) <= 2 && withAnchors) {
+        document.body.style.cursor = 'ns-resize';
+    } else {
+        document.body.style.cursor = 'alias';
+    }
+    switch (anchorHitTest(x, y)) {
+        case 0:
+            if (withAnchors) {
+                // alert('hello');
+                document.body.style.cursor = 'nwse-resize';
+            }
+            break;
+        case 1:
+            if (withAnchors)
+                document.body.style.cursor = 'nesw-resize';
+            break;
+        case 2:
+            if (withAnchors)
+                document.body.style.cursor = 'nwse-resize';
+            break;
+        case 3:
+            if (withAnchors)
+                document.body.style.cursor = 'nesw-resize';
+            break;
+        default:
+            // document.body.style.cursor='alias';
+            break;
+    }
+    console.log('hello > ', x, imageX, y, (imageBottom + imageY) / 2);
 }
 
 function anchorHitTest(x, y) {
@@ -162,6 +224,7 @@ function anchorHitTest(x, y) {
     dx = x - imageX;
     dy = y - imageY;
     if (dx * dx + dy * dy <= rr) {
+
         return (0);
     }
     // top-right
@@ -194,23 +257,50 @@ function hitImage(x, y) {
 function handleMouseDown(e, offsetX, offsetY, canvas, ctx, img) {
     startX = parseInt(e.clientX - offsetX);
     startY = parseInt(e.clientY - offsetY);
+    if (hitImage(startX, startY)) {
+        withAnchors = true;
+        withBorders = true;
+    } else {
+        withAnchors = false;
+        withBorders = false;
+    }
+
     draggingResizer = anchorHitTest(startX, startY);
     draggingImage = draggingResizer < 0 && hitImage(startX, startY);
     console.log('offset x, y > ', canvas.offsetLeft, canvas.offsetTop);
+    draw(img, canvas, ctx);
 }
 
 function handleMouseUp(e, canvas, ctx, img) {
     draggingResizer = -1;
     draggingImage = false;
-    draw(true, false, img, canvas, ctx);
+    draw(img, canvas, ctx);
 }
 
 function handleMouseOut(e, canvas, ctx, img) {
     handleMouseUp(e, canvas, ctx, img);
 }
 
-function handleMouseMove(e, offsetX, offsetY, canvas, ctx, img) {
+function handleMouseMove(e, offsetX, offsetY, canvas, ctx, img, text) {
     // console.log('mouse moving > ', draggingResizer, draggingImage);
+    // draggingResizer = anchorHitTest(e.clientX - offsetX, e.clientX - offsetX);
+    mouseOverBorders(e.clientX - offsetX, e.clientY - offsetY);
+    if (hitImage(parseInt(e.clientX - offsetX), parseInt(e.clientY - offsetY))) {
+        // draw(false, true, img, canvas, ctx);
+        if (!withBorders) {
+            withBorders = true;
+            draw(img, canvas, ctx);
+            drawText(text, ctx);
+        }
+    } else {
+        // draw(false, false, img, canvas, ctx);
+        if (!withAnchors) {
+            withBorders = false;
+            draw(img, canvas, ctx);
+            drawText(text, ctx);
+        }
+    }
+
     if (draggingResizer > -1) {
         let mouseX = parseInt(e.clientX - offsetX);
         let mouseY = parseInt(e.clientY - offsetY);
@@ -251,7 +341,7 @@ function handleMouseMove(e, offsetX, offsetY, canvas, ctx, img) {
         imageBottom = imageY + imageHeight;
 
         // redraw the image with resizing anchors
-        draw(true, true, img, canvas, ctx);
+        draw(img, canvas, ctx);
 
     } else if (draggingImage) {
         let imageClick = false;
@@ -271,8 +361,7 @@ function handleMouseMove(e, offsetX, offsetY, canvas, ctx, img) {
         startY = mouseY;
 
         // redraw the image with border
-        draw(false, true, img, canvas, ctx);
-
+        draw(img, canvas, ctx);
     }
 }
 

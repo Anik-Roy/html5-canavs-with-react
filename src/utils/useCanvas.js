@@ -1,8 +1,8 @@
 import { useRef, useState, useEffect } from "react";
 
-var startX;
-var startY;
-var isDown = false;
+var startX = 50;
+var startY = 50;
+// var isDown = false;
 
 
 var pi2 = Math.PI * 2;
@@ -16,8 +16,10 @@ var imageX = 50;
 var imageY = 50;
 var imageWidth, imageHeight, imageRight, imageBottom;
 var draggingImage = false;
-var startX;
-var startY;
+// var startX;
+// var startY;
+var prevXState, prevYState;
+
 var withAnchors, withBorders;
 
 export function useCanvas() {
@@ -60,11 +62,11 @@ export function useCanvas() {
                     const ctx = canvas.getContext('2d');
                     // var offsetX = 0.5;   // center x
                     // var offsetY = 0.5;   // center y
-                    var offsetX = canvas.offsetX;   // center x
-                    var offsetY = canvas.offsetY;   // center y
+                    // var offsetX = canvas.offsetX;   // center x
+                    // var offsetY = canvas.offsetY;   // center y
 
-                    imageWidth = Math.min(canvas.width - (imageX * 2), img.width);
-                    imageHeight = Math.min(canvas.height - (imageY * 2), img.height);
+                    imageWidth = imageWidth ?? Math.min(canvas.width - (imageX * 2), img.width);
+                    imageHeight = imageHeight ?? Math.min(canvas.height - (imageY * 2), img.height);
 
                     // imageWidth = img.width;
                     // imageHeight = img.height;
@@ -78,7 +80,7 @@ export function useCanvas() {
                     // }
                     canvas.addEventListener('mousedown', (e) => {
                         console.log('mouse down');
-                        handleMouseDown(e, canvas.offsetLeft, canvas.offsetTop, canvas, ctx, img);
+                        handleMouseDown(e, canvas.offsetLeft, canvas.offsetTop, canvas, ctx, img, text);
                     });
                     canvas.addEventListener('mousemove', (e) => {
                         // console.log('mouse move');
@@ -86,11 +88,11 @@ export function useCanvas() {
                     });
                     canvas.addEventListener('mouseup', (e) => {
                         console.log('mouse up');
-                        handleMouseUp(e, canvas, ctx, img);
+                        handleMouseUp(e, canvas, ctx, img, text);
                     });
                     canvas.addEventListener('mouseout', (e) => {
                         console.log('mouse out');
-                        handleMouseOut(e, canvas, ctx, img);
+                        handleMouseOut(e, canvas, ctx, img, text);
                     });
                     return () => {
                         canvas.removeEventListener('mousedown', (e) => {
@@ -152,8 +154,8 @@ function draw(img, canvas, ctx) {
         // drawDragAnchor(imageRight, (imageBottom + imageY) / 2, ctx);
         drawDragLine(imageX, (imageBottom + imageY) / 2, ctx);
         drawDragLine(imageRight, (imageBottom + imageY) / 2, ctx);
-        drawDragLine(imageX+((imageRight-imageX)/2), imageY-5, ctx);
-        drawDragLine(imageX+((imageRight-imageX)/2), imageBottom-5, ctx);
+        drawDragLine(imageX + ((imageRight - imageX) / 2), imageY - 5, ctx);
+        drawDragLine(imageX + ((imageRight - imageX) / 2), imageBottom - 5, ctx);
     }
 }
 
@@ -180,15 +182,19 @@ function drawDragAnchor(x, y, ctx) {
 
 function mouseOverBorders(x, y, ctx) {
     if (
-        (Math.abs(x - imageX) <= 2 && (y >= imageY && y <= imageBottom) && withAnchors) ||
-        (Math.abs(x - imageRight) <= 2) && (y >= imageY && y <= imageBottom) && withAnchors) {
-        document.body.style.cursor = 'col-resize';
-    } else if (Math.abs(y - imageY) <= 2 && withAnchors) {
-        document.body.style.cursor = 'ns-resize';
-    } else if (Math.abs(y - imageBottom) <= 2 && withAnchors) {
-        document.body.style.cursor = 'ns-resize';
+        (Math.abs(x - imageX) <= 2 && y >= imageY && y <= imageBottom && withAnchors) ||
+        (Math.abs(x - imageRight) <= 2 && y >= imageY && y <= imageBottom && withAnchors)) {
+        if (draggingResizer === -1)
+            document.body.style.cursor = 'col-resize';
+    } else if (Math.abs(y - imageY) <= 2 && (x >= imageX && x <= imageRight) && withAnchors) {
+        if (draggingResizer === -1)
+            document.body.style.cursor = 'ns-resize';
+    } else if (Math.abs(y - imageBottom) <= 2 && (x >= imageX && x <= imageRight) && withAnchors) {
+        if (draggingResizer === -1)
+            document.body.style.cursor = 'ns-resize';
     } else {
-        document.body.style.cursor = 'alias';
+        // if (draggingResizer === -1)
+            document.body.style.cursor = 'alias';
     }
     switch (anchorHitTest(x, y)) {
         case 0:
@@ -213,7 +219,23 @@ function mouseOverBorders(x, y, ctx) {
             // document.body.style.cursor='alias';
             break;
     }
-    console.log('hello > ', x, imageX, y, (imageBottom + imageY) / 2);
+    // console.log('hello > ', x, imageX, y, (imageBottom + imageY) / 2);
+}
+
+function borderHitText(x, y) {
+    if (Math.abs(x - imageX) <= 2 && (y >= imageY && y <= imageBottom)) {
+        return 4;
+    } else if ((Math.abs(x - imageRight) <= 2) && (y >= imageY && y <= imageBottom)) {
+        return 5;
+    } else if (Math.abs(y - imageY) <= 2 && withAnchors) {
+        document.body.style.cursor = 'ns-resize';
+        return 6;
+    } else if (Math.abs(y - imageBottom) <= 2 && withAnchors) {
+        document.body.style.cursor = 'ns-resize';
+        return 7;
+    } else {
+        return -1;
+    }
 }
 
 function anchorHitTest(x, y) {
@@ -248,37 +270,42 @@ function anchorHitTest(x, y) {
     return (-1);
 }
 
-
 function hitImage(x, y) {
     return (x > imageX && x < imageX + imageWidth && y > imageY && y < imageY + imageHeight);
 }
 
-
-function handleMouseDown(e, offsetX, offsetY, canvas, ctx, img) {
+function handleMouseDown(e, offsetX, offsetY, canvas, ctx, img, text) {
     startX = parseInt(e.clientX - offsetX);
     startY = parseInt(e.clientY - offsetY);
     if (hitImage(startX, startY)) {
         withAnchors = true;
         withBorders = true;
     } else {
-        withAnchors = false;
-        withBorders = false;
+        // withAnchors = false;
+        // withBorders = false;
     }
 
     draggingResizer = anchorHitTest(startX, startY);
+    if (draggingResizer === -1)
+        draggingResizer = borderHitText(startX, startY);
+
     draggingImage = draggingResizer < 0 && hitImage(startX, startY);
     console.log('offset x, y > ', canvas.offsetLeft, canvas.offsetTop);
     draw(img, canvas, ctx);
+    drawText(ctx, text);
 }
 
-function handleMouseUp(e, canvas, ctx, img) {
+function handleMouseUp(e, canvas, ctx, img, text) {
     draggingResizer = -1;
     draggingImage = false;
-    draw(img, canvas, ctx);
+    prevXState = undefined;
+    prevYState = undefined;
+    // draw(img, canvas, ctx);
+    // drawText(ctx, text)
 }
 
-function handleMouseOut(e, canvas, ctx, img) {
-    handleMouseUp(e, canvas, ctx, img);
+function handleMouseOut(e, canvas, ctx, img, text) {
+    handleMouseUp(e, canvas, ctx, img, text);
 }
 
 function handleMouseMove(e, offsetX, offsetY, canvas, ctx, img, text) {
@@ -287,49 +314,227 @@ function handleMouseMove(e, offsetX, offsetY, canvas, ctx, img, text) {
     mouseOverBorders(e.clientX - offsetX, e.clientY - offsetY);
     if (hitImage(parseInt(e.clientX - offsetX), parseInt(e.clientY - offsetY))) {
         // draw(false, true, img, canvas, ctx);
+        // withBorders = true;
         if (!withBorders) {
             withBorders = true;
-            draw(img, canvas, ctx);
-            drawText(text, ctx);
+            // draw(img, canvas, ctx);
+            // drawText(ctx, text);
         }
     } else {
         // draw(false, false, img, canvas, ctx);
-        if (!withAnchors) {
+        if (!withAnchors && withBorders) {
             withBorders = false;
-            draw(img, canvas, ctx);
-            drawText(text, ctx);
+            // draw(img, canvas, ctx);
+            // drawText(ctx, text);
         }
     }
 
+    // let mouseX = parseInt(e.clientX - offsetX);
+    // let mouseY = parseInt(e.clientY - offsetY);
+    console.log(parseInt(e.clientX - offsetX), parseInt(e.clientY - offsetY));
+
     if (draggingResizer > -1) {
+        // alert('dragging resizer');
         let mouseX = parseInt(e.clientX - offsetX);
         let mouseY = parseInt(e.clientY - offsetY);
+        console.log(mouseX, mouseY);
 
         // resize the image
         switch (draggingResizer) {
             case 0:
                 //top-left
-                imageX = mouseX;
-                imageWidth = imageRight - mouseX;
-                imageY = mouseY;
-                imageHeight = imageBottom - mouseY;
+                // imageX = mouseX;
+                // imageWidth = imageRight - mouseX;
+                // imageY = mouseY;
+                // imageHeight = imageBottom - mouseY;
+                if (prevXState === undefined) {
+                    prevXState = mouseX;
+                    prevYState = mouseY;
+                    imageX = mouseX;
+                    imageWidth = imageRight - mouseX;
+                    imageY = mouseY;
+                    imageHeight = imageBottom - mouseY;
+                } else {
+                    if (mouseX > prevXState) {
+                        imageX = imageX + Math.abs(mouseX - prevXState);
+                        imageY = imageY + Math.abs(mouseX - prevXState);
+                        imageWidth = imageRight - imageX;
+                        imageHeight = imageBottom - imageY;
+                        console.log('inside if');
+                    } else if (mouseX < prevXState) {
+                        imageX = imageX - Math.abs(prevXState - mouseX);
+                        imageY = imageY - Math.abs(prevXState - mouseX);
+                        imageWidth = imageRight - imageX;
+                        imageHeight = imageBottom - imageY;
+                        console.log('inside else');
+                    }
+                    prevXState = mouseX;
+                    prevYState = mouseY;
+                }
+                // console.log('case 0');
                 break;
             case 1:
                 //top-right
-                imageY = mouseY;
-                imageWidth = mouseX - imageX;
-                imageHeight = imageBottom - mouseY;
+                // imageY = mouseY;
+                // imageWidth = mouseX - imageX;
+                // imageHeight = imageBottom - mouseY;
+                if (prevXState === undefined) {
+                    prevXState = mouseX;
+                    prevYState = mouseY;
+                    // imageX = mouseX;
+                    imageY = mouseY;
+                    imageWidth = mouseX - imageX;
+                    imageHeight = imageBottom - mouseY;
+                } else {
+                    if (mouseX > prevXState) {
+                        // imageX = imageX + Math.abs(mouseX - prevXState);
+                        imageY = imageY - Math.abs(mouseX - prevXState);
+                        imageWidth = mouseX - imageX;
+                        imageHeight = imageBottom - imageY;
+                        console.log('inside if asdf');
+                    } else if (mouseX < prevXState) {
+                        // imageX = imageX - Math.abs(prevXState - mouseX);
+                        imageY = imageY + Math.abs(prevXState - mouseX);
+                        imageWidth = mouseX - imageX;
+                        imageHeight = imageBottom - imageY;
+                        console.log('inside else');
+                    }
+                    prevXState = mouseX;
+                    prevYState = mouseY;
+                }
                 break;
             case 2:
                 //bottom-right
-                imageWidth = mouseX - imageX;
-                imageHeight = mouseY - imageY;
+                // imageWidth = mouseX - imageX;
+                // imageHeight = mouseY - imageY;
+                if (prevXState === undefined) {
+                    prevXState = mouseX;
+                    prevYState = mouseY;
+                    imageWidth = mouseX - imageX;
+                    imageHeight = mouseY - imageY;
+                } else {
+                    if (mouseX > prevXState) {
+                        // imageX = imageX + Math.abs(mouseX - prevXState);
+                        // imageY = imageY + Math.abs(mouseX - prevXState);
+                        imageWidth = imageRight - imageX + Math.abs(mouseX - prevXState);
+                        imageHeight = imageBottom - imageY + Math.abs(mouseX - prevXState);
+                        console.log('inside if');
+                    } else if (mouseX < prevXState) {
+                        imageWidth = imageRight - imageX - Math.abs(mouseX - prevXState);
+                        imageHeight = imageBottom - imageY - Math.abs(mouseX - prevXState);
+                        console.log('inside else');
+                    }
+                    prevXState = mouseX;
+                    prevYState = mouseY;
+                }
                 break;
             case 3:
                 //bottom-left
-                imageX = mouseX;
-                imageWidth = imageRight - mouseX;
-                imageHeight = mouseY - imageY;
+                // imageX = mouseX;
+                // imageWidth = imageRight - mouseX;
+                // imageHeight = mouseY - imageY;
+                if (prevXState === undefined) {
+                    imageX = mouseX;
+                    imageWidth = imageRight - mouseX;
+                    imageHeight = mouseY - imageY;
+                } else {
+                    if (mouseX > prevXState) {
+                        // imageX = imageX + Math.abs(mouseX - prevXState);
+                        // imageY = imageY + Math.abs(mouseX - prevXState);
+                        imageWidth = imageRight - imageX + Math.abs(mouseX - prevXState);
+                        imageHeight = imageBottom - imageY + Math.abs(mouseX - prevXState);
+                        console.log('inside if');
+                    } else if (mouseX < prevXState) {
+                        imageWidth = imageRight - imageX - Math.abs(mouseX - prevXState);
+                        imageHeight = imageBottom - imageY - Math.abs(mouseX - prevXState);
+                        console.log('inside else');
+                    }
+                    prevXState = mouseX;
+                    prevYState = mouseY;
+                }
+                break;
+            case 4:
+                if (prevXState === undefined) {
+                    prevXState = mouseX;
+                    prevYState = mouseY;
+                    imageX = mouseX;
+                    imageWidth = imageRight - mouseX;
+                    imageHeight = imageBottom - imageY;
+                } else {
+                    if (mouseX > prevXState) {
+                        imageX = imageX + Math.abs(mouseX - prevXState);
+                        imageWidth = imageRight - imageX;
+                        console.log('inside if');
+                    } else if (mouseX < prevXState) {
+                        imageX = imageX - Math.abs(prevXState - mouseX);
+                        imageWidth = imageRight - imageX;
+                        console.log('inside else');
+                    }
+                    prevXState = mouseX;
+                    prevYState = mouseY;
+                }
+                break;
+            case 5:
+                if (prevXState === undefined) {
+                    prevXState = mouseX;
+                    prevYState = mouseY;
+                    // imageX = mouseX;
+                    imageWidth = imageRight - imageX;
+                } else {
+                    if (mouseX > prevXState) {
+                        // imageX = imageX + Math.abs(mouseX - prevXState);
+                        imageWidth = imageRight - imageX + Math.abs(mouseX - prevXState);
+                        console.log('inside if');
+                    } else if (mouseX < prevXState) {
+                        // imageX = imageX - Math.abs(prevXState - mouseX);
+                        imageWidth = imageRight - imageX - Math.abs(prevXState - mouseX);
+                        console.log('inside else');
+                    }
+                    prevXState = mouseX;
+                    prevYState = mouseY;
+                }
+                break;
+            case 6:
+                if (prevXState === undefined) {
+                    prevXState = mouseX;
+                    prevYState = mouseY;
+                    // imageX = mouseX;
+                    imageHeight = imageBottom - imageY;
+                } else {
+                    if (mouseY > prevYState) {
+                        // imageX = imageX + Math.abs(mouseX - prevXState);
+                        imageY = imageY + Math.abs(mouseY - prevYState);
+                        imageHeight = imageBottom - imageY;
+                        console.log('inside if');
+                    } else if (mouseY < prevYState) {
+                        // imageX = imageX - Math.abs(prevXState - mouseX);
+                        imageY = imageY - Math.abs(mouseY - prevYState);
+                        imageHeight = imageBottom - imageY;
+                        console.log('inside else');
+                    }
+                    prevXState = mouseX;
+                    prevYState = mouseY;
+                }
+
+            case 7:
+                if (prevXState === undefined) {
+                    prevXState = mouseX;
+                    prevYState = mouseY;
+                    // imageX = mouseX;
+                    imageHeight = imageBottom - imageY;
+                } else {
+                    if (mouseY > prevYState) {
+                        imageHeight = imageBottom - imageY + Math.abs(mouseY - prevYState);
+                        console.log('inside if');
+                    } else if (mouseY < prevYState) {
+                        imageHeight = imageBottom - imageY - Math.abs(mouseY - prevYState);
+                        console.log('inside else');
+                    }
+                    prevXState = mouseX;
+                    prevYState = mouseY;
+                }
+                break;
+            default:
                 break;
         }
 
@@ -342,9 +547,11 @@ function handleMouseMove(e, offsetX, offsetY, canvas, ctx, img, text) {
 
         // redraw the image with resizing anchors
         draw(img, canvas, ctx);
+        drawText(ctx, text)
 
     } else if (draggingImage) {
-        let imageClick = false;
+        // imageClick = false;
+        // alert('dragging image');
 
         let mouseX = parseInt(e.clientX - offsetX);
         let mouseY = parseInt(e.clientY - offsetY);
@@ -362,6 +569,7 @@ function handleMouseMove(e, offsetX, offsetY, canvas, ctx, img, text) {
 
         // redraw the image with border
         draw(img, canvas, ctx);
+        drawText(ctx, text)
     }
 }
 
@@ -414,15 +622,22 @@ function drawImage(ctx, img, x, y, w, h, offsetX, offsetY) {
 }
 
 function drawText(ctx, text) {
-    ctx.font = "40px Courier";
+    ctx.font = "10px Courier";
     ctx.fillStyle = '#ffffff';
 
     var lines = text.split('\n');
-    let x = 50;
-    let y = 50;
+    let x = 55;
+    let y = 55;
 
-    for (var i = 0; i < lines.length; i++)
-        ctx.fillText(lines[i], x, y + (i * y));
+    ctx.fillText(`width - ${imageWidth}\nheight - ${imageHeight}`, imageX + 5, imageY + 10);
+
+    for (var i = 0; i < lines.length; i++) {
+        if (i === 0) {
+            ctx.fillText(lines[i], x, 100 + (i * y));
+        } else {
+            ctx.fillText(lines[i], x, y + ((i + 1) * y));
+        }
+    }
 }
 
 function addTextAreaNew(canvas) {

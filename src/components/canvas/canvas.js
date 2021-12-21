@@ -57,8 +57,9 @@ const Canvas = () => {
                 <canvas className='bg-white shadow-md' ref={canvasRef} width={840} height={425} />
                 <img ref={imageRef} src={pizza} className="hidden" alt='default' />
             </div>
+            <h3 className='text-red-500 text-2xl ml-5 mt-2'>Click on the selected image for resizing</h3>
             {/* controller */}
-            <div className='mt-20'>
+            <div className='mt-5'>
                 <textarea
                     style={{ position: "absolute", top: "20px", right: "200px" }}
                     rows={10}

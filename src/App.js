@@ -4,7 +4,7 @@ import Canvas from './components/canvas/canvas';
 
 function App() {
   return (
-    <div className="App w-full h-screen">
+    <div className="App">
       {/* <Home /> */}
       <Canvas />
     </div>

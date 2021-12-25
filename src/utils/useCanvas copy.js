@@ -20,57 +20,35 @@ var prevXState, prevYState;
 var withAnchors, withBorders;
 // this var will hold the index of the hit-selected text
 
-// var selectedTextIndex = -1;
+var selectedTextIndex = -1;
 
 var mouseDownOnTextArea = false;
 var textinputs = [];
 var textareaNodes = [];
 var tempImg = null;
+var textInputColor = "#000000";
 let rotateClicked = false;
 let containerCenter;
-let canvas;
-let ctx;
 
 export function useCanvas() {
     const canvasRef = useRef(null);
     const imageRef = useRef(null);
     const [selectedImg, setSelectedImg] = useState(null);
     const [textColor, setTextColor] = useState("#000000");
-    const [canvasBgColor, setCanvasBgColor] = useState("transparent");
     const [showToolbar, setShowToolbar] = useState(false);
-    const [selectedTextIndex, setSelectedTextIndex] = useState(-1);
+
+    let canvas;
+    let ctx;
 
     useEffect(() => {
-        if (selectedTextIndex !== -1) {
-            setShowToolbar(true);
-        } else {
-            setShowToolbar(false);
-        }
-    }, [selectedTextIndex]);
-
-    useEffect(() => {
-        if((textColor.length === 7 || textColor.length === 4) && selectedTextIndex !== -1) {
-            textareaNodes[selectedTextIndex].style.color = textColor;
-            textinputs[selectedTextIndex].color = textColor;
-            // draw(tempImg);
-            // drawText();
-            console.log('updating color');
-        }
+        textInputColor = textColor;
     }, [textColor]);
-
-    useEffect(() => {
-        if(canvas && (canvasBgColor === 'transparent' || canvasBgColor.length === 7 || canvasBgColor.length === 4)) {
-            canvas.backgroundColor = canvasBgColor;
-            draw(tempImg);
-        }
-    }, [canvasBgColor]);
 
     useEffect(() => {
         if (selectedImg === null) {
             canvas = canvasRef.current;
             canvas.crossOrigin = "Anonymous";
             ctx = canvas.getContext('2d');
-            canvas.backgroundColor = canvasBgColor;
             // const canvas = canvasRef.current;
             // let img = imageRef.current;
 
@@ -95,7 +73,6 @@ export function useCanvas() {
         } else {
             canvas = canvasRef.current;
             canvas.crossOrigin = "Anonymous";
-            canvas.backgroundColor = canvasBgColor;
             var reader = new FileReader();
             var img = "";
             reader.onload = function (event) {
@@ -124,7 +101,7 @@ export function useCanvas() {
                     });
 
                     canvas.addEventListener('mousemove', (e) => {
-                        // console.log('mouse move');
+                        console.log('mouse move');
                         handleMouseMove(e, canvas.offsetLeft, canvas.offsetTop, img);
                     });
 
@@ -181,15 +158,12 @@ export function useCanvas() {
     function draw(img) {
         // clear the canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = canvasBgColor;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        console.log('clearing canvas ', canvasBgColor);
-
+    
+        console.log('clearing canvas');
         if (img) {
             // draw the image
             ctx.drawImage(img, 0, 0, img.width, img.height, imageX, imageY, imageWidth, imageHeight);
-
+    
             // optionally draw the connecting anchor lines
             if (withBorders) {
                 ctx.beginPath();
@@ -202,7 +176,7 @@ export function useCanvas() {
                 ctx.closePath();
                 ctx.stroke();
             }
-
+    
             // optionally draw the draggable anchors
             if (withAnchors) {
                 drawDragAnchor(imageX, imageY, ctx);
@@ -218,7 +192,7 @@ export function useCanvas() {
             }
         }
     }
-
+    
     function drawDragLine(x, y) {
         ctx.beginPath();
         ctx.moveTo(x, y);
@@ -228,7 +202,7 @@ export function useCanvas() {
         ctx.closePath();
         ctx.stroke();
     }
-
+    
     function drawDragAnchor(x, y) {
         ctx.beginPath();
         ctx.fillStyle = "#fff"
@@ -239,7 +213,7 @@ export function useCanvas() {
         ctx.strokeStyle = "#07c6d6";
         ctx.stroke();
     }
-
+    
     function mouseOverBorders(x, y) {
         if (
             (Math.abs(x - imageX) <= 2 && y >= imageY && y <= imageBottom && withAnchors) ||
@@ -280,7 +254,7 @@ export function useCanvas() {
         }
         // console.log('hello > ', x, imageX, y, (imageBottom + imageY) / 2);
     }
-
+    
     function borderHitText(x, y) {
         if (Math.abs(x - imageX) <= 2 && (y >= imageY && y <= imageBottom)) {
             return 4;
@@ -296,16 +270,16 @@ export function useCanvas() {
             return -1;
         }
     }
-
+    
     function anchorHitTest(x, y) {
-
+    
         var dx, dy;
-
+    
         // top-left
         dx = x - imageX;
         dy = y - imageY;
         if (dx * dx + dy * dy <= rr) {
-            console.log('here matched');
+    
             return (0);
         }
         // top-right
@@ -328,22 +302,20 @@ export function useCanvas() {
         }
         return (-1);
     }
-
+    
     function hitImage(x, y) {
         return (x > imageX && x < imageX + imageWidth && y > imageY && y < imageY + imageHeight);
     }
-
+    
     // test if x,y is inside the bounding box of texts[textIndex]
     function hitText(x, y, textIndex) {
         var text = textinputs[textIndex];
-        console.log(x, y);
-        console.log(text);
         return (x >= text.x && x <= text.x + text.width && y >= text.y - text.height && y <= text.y);
     }
-
+    
     function handleMouseDown(e, offsetX, offsetY, img) {
-        startX = parseInt(e.clientX - offsetX + window.scrollX);
-        startY = parseInt(e.clientY - offsetY + window.scrollY);
+        startX = parseInt(e.clientX - offsetX);
+        startY = parseInt(e.clientY - offsetY);
         if (hitImage(startX, startY)) {
             withAnchors = true;
             withBorders = true;
@@ -351,24 +323,24 @@ export function useCanvas() {
             withAnchors = false;
             withBorders = false;
         }
-
+    
         for (var i = 0; i < textinputs.length; i++) {
             if (hitText(startX, startY, i)) {
                 selectedTextIndex = i;
             }
         }
-
+    
         draggingResizer = anchorHitTest(startX, startY);
 
         if (draggingResizer === -1)
             draggingResizer = borderHitText(startX, startY);
-
+    
         draggingImage = draggingResizer < 0 && hitImage(startX, startY);
         console.log('offset x, y > ', canvas.offsetLeft, canvas.offsetTop);
         draw(img);
         // drawText(ctx, text);
     }
-
+    
     function handleMouseUp(e, img) {
         draggingResizer = -1;
         draggingImage = false;
@@ -378,18 +350,16 @@ export function useCanvas() {
         // draw(img, canvas, ctx);
         // drawText(ctx, text)
     }
-
+    
     function handleMouseOut(e, img) {
         handleMouseUp(e, img);
     }
-
+    
     function handleMouseMove(e, offsetX, offsetY, img) {
         // console.log('mouse moving > ', draggingResizer, draggingImage);
         // draggingResizer = anchorHitTest(e.clientX - offsetX, e.clientX - offsetX);
-        // console.log(offsetX, offsetY);
-        // console.log(window.pageXOffset, window.pageYOffset);
-        mouseOverBorders(e.clientX - offsetX - window.scrollX, e.clientY - offsetY + window.scrollY);
-        if (hitImage(parseInt(e.clientX - offsetX - window.scrollX), parseInt(e.clientY - offsetY + window.scrollY))) {
+        mouseOverBorders(e.clientX - offsetX, e.clientY - offsetY);
+        if (hitImage(parseInt(e.clientX - offsetX), parseInt(e.clientY - offsetY))) {
             // draw(false, true, img, canvas, ctx);
             // withBorders = true;
             if (!withBorders) {
@@ -405,18 +375,18 @@ export function useCanvas() {
                 // drawText(ctx, text);
             }
         }
-
+    
         // let mouseX = parseInt(e.clientX - offsetX);
         // let mouseY = parseInt(e.clientY - offsetY);
         // console.log(parseInt(e.clientX - offsetX), parseInt(e.clientY - offsetY));
-
+    
         if (draggingResizer > -1 && selectedTextIndex === -1) {
             console.log('inside dragging resizer');
             // alert('dragging resizer');
-            let mouseX = parseInt(e.clientX - offsetX - window.scrollX);
-            let mouseY = parseInt(e.clientY - offsetY + window.scrollY);
+            let mouseX = parseInt(e.clientX - offsetX);
+            let mouseY = parseInt(e.clientY - offsetY);
             console.log(mouseX, mouseY);
-
+    
             // resize the image
             switch (draggingResizer) {
                 case 0:
@@ -512,22 +482,19 @@ export function useCanvas() {
                     // imageWidth = imageRight - mouseX;
                     // imageHeight = mouseY - imageY;
                     if (prevXState === undefined) {
-                        prevXState = mouseX;
-                        prevYState = mouseY;
-                        // imageX = mouseX;
-                        // imageWidth = imageRight - mouseX;
-                        // imageHeight = mouseY - imageY;
+                        imageX = mouseX;
+                        imageWidth = imageRight - mouseX;
+                        imageHeight = mouseY - imageY;
                     } else {
                         if (mouseX > prevXState) {
-                            imageX = imageX + Math.abs(mouseX - prevXState);
+                            // imageX = imageX + Math.abs(mouseX - prevXState);
                             // imageY = imageY + Math.abs(mouseX - prevXState);
-                            imageWidth = imageRight - imageX;
-                            imageHeight = imageBottom - imageY - Math.abs(mouseX - prevXState);
+                            imageWidth = imageRight - imageX + Math.abs(mouseX - prevXState);
+                            imageHeight = imageBottom - imageY + Math.abs(mouseX - prevXState);
                             console.log('inside if');
                         } else if (mouseX < prevXState) {
-                            imageX = imageX - Math.abs(mouseX - prevXState);
-                            imageWidth = imageRight - imageX;
-                            imageHeight = imageBottom - imageY + Math.abs(mouseX - prevXState);
+                            imageWidth = imageRight - imageX - Math.abs(mouseX - prevXState);
+                            imageHeight = imageBottom - imageY - Math.abs(mouseX - prevXState);
                             console.log('inside else');
                         }
                         prevXState = mouseX;
@@ -597,6 +564,7 @@ export function useCanvas() {
                         prevYState = mouseY;
                     }
                     break;
+    
                 case 7:
                     if (prevXState === undefined) {
                         prevXState = mouseX;
@@ -618,26 +586,26 @@ export function useCanvas() {
                 default:
                     break;
             }
-
+    
             if (imageWidth < 25) { imageWidth = 25; }
             if (imageHeight < 25) { imageHeight = 25; }
-
+    
             // set the image right and bottom
             imageRight = imageX + imageWidth;
             imageBottom = imageY + imageHeight;
-
+    
             // redraw the image with resizing anchors
             draw(img);
             // drawText(ctx, text);
-
+    
         } else if (draggingImage && selectedTextIndex === -1) {
             console.log('inside dragging image');
             // imageClick = false;
             // alert('dragging image');
-
-            let mouseX = parseInt(e.clientX - offsetX - window.scrollX);
-            let mouseY = parseInt(e.clientY - offsetY + window.scrollY);
-
+    
+            let mouseX = parseInt(e.clientX - offsetX);
+            let mouseY = parseInt(e.clientY - offsetY);
+    
             // move the image by the amount of the latest drag
             var dx = mouseX - startX;
             var dy = mouseY - startY;
@@ -648,55 +616,54 @@ export function useCanvas() {
             // reset the startXY for next time
             startX = mouseX;
             startY = mouseY;
-
+    
             // redraw the image with border
             draw(img);
             // drawText(ctx, text);
         }
-
+    
         if (selectedTextIndex > -1) {
-            console.log('selected text');
             let mouseX = parseInt(e.clientX - offsetX);
             let mouseY = parseInt(e.clientY - offsetY);
-
+    
             var dx = mouseX - startX;
             var dy = mouseY - startY;
             startX = mouseX;
             startY = mouseY;
-
+    
             // var tmpTextArray = [...text];
             var textObj = textinputs[selectedTextIndex];
             textObj.x += dx;
             textObj.y += dy;
-
+    
             textinputs[selectedTextIndex] = textObj;
             // setText(tmpTextArray);
-
+    
             draw(img);
             // drawText(ctx, tmpTextArray);
         }
     }
-
+    
     function drawText() {
         // ctx.font = "10px Courier";
-        // ctx.fillStyle = '#000000';
+        ctx.fillStyle = '#000000';
         // ctx.fillText(`width - ${imageWidth}\nheight - ${imageHeight}`, imageX + 5, imageY + 10);
-
+    
         // ctx.font = "14px Courier";
-
+    
         for (var i = 0; i < textinputs.length; i++) {
             var lines = textinputs[i].text.split('\n');
             // console.log('drawText > ', lines);
-
+    
             let x = textinputs[i].x;
             let y = textinputs[i].y;
-
+    
             // textarea.style.top = (canvas.offsetTop + (30 * textinputs.length)) + 'px';
             // textarea.style.left = (canvas.offsetLeft) + 'px';
-            ctx.fillStyle = textinputs[i].color;
+    
             ctx.font = textinputs[i].fontSize + ' ' + textinputs[i].fontFamily;
             let multipyBy = 0;
-
+    
             for (var j = 0; j < lines.length; j++) {
                 // ctx.fillText(lines[j], x - ctx.canvas.offsetLeft, (y - ctx.canvas.offsetTop - 5 + (16 * (j + 1))));
                 // ctx.fillText(lines[j], x, (y + (14 * (j + 1))));
@@ -704,7 +671,7 @@ export function useCanvas() {
                 console.log(lines[j] === "", j);
                 if (lines[j] === "")
                     continue;
-
+    
                 console.log('processing ', x - ctx.canvas.offsetLeft, y - ctx.canvas.offsetTop - 5 + (multipyBy * 20));
                 console.log('rotating ', textinputs[i].angle);
                 // ctx.save();
@@ -713,10 +680,10 @@ export function useCanvas() {
                 // ctx.rotate(text[i].angle);
                 ctx.fillText(lines[j], x - ctx.canvas.offsetLeft, y - ctx.canvas.offsetTop + 14 + (multipyBy * 20));
                 // ctx.fillText(lines[j],0, 0);
-
+    
                 // ctx.restore();
                 multipyBy += 1;
-
+    
                 // ctx.beginPath();
                 // ctx.moveTo(x, y - 20);
                 // ctx.lineWidth = 2;
@@ -729,7 +696,7 @@ export function useCanvas() {
             }
         }
     }
-
+    
     function addTextAreaNew() {
         let container = document.createElement('div');
         container.style.position = 'absolute';
@@ -737,11 +704,11 @@ export function useCanvas() {
         container.style.left = (canvas.offsetLeft) + 'px';
         container.style.backgroundColor = 'transparent';
         container.style.border = '1px solid #07c6d6';
-
+    
         let textarea = document.createElement('div');
         textarea.className = 'info';
         textarea.id = 'textarea-' + textinputs.length;
-
+    
         let textInputObj = {
             id: textarea.id,
             text: "Add text...",
@@ -750,7 +717,6 @@ export function useCanvas() {
             width: 80,
             height: 20,
             backgroundColor: 'transparent',
-            color: "#000000",
             fontSize: '14px',
             fontFamily: 'Courier',
             angle: 0,
@@ -769,7 +735,7 @@ export function useCanvas() {
         // textarea.style.border = '1px solid #07c6d6';
         textarea.style.fontSize = '14px';
         textarea.style.fontFamily = 'Courier';
-
+    
         let rotateDiv = document.createElement('div');
         rotateDiv.style.width = "20px";
         rotateDiv.style.height = "20px";
@@ -777,34 +743,33 @@ export function useCanvas() {
         rotateDiv.style.bottom = '-30' + 'px';
         rotateDiv.style.left = '45%';
         rotateDiv.style.overflow = "hidden";
-
+    
         let rotateIndicator = document.createElement('img');
         rotateIndicator.src = rotateicon;
         rotateDiv.appendChild(rotateIndicator);
-
+    
         textarea.appendChild(rotateDiv);
         // console.log(textarea);
-
+    
         container.appendChild(textarea);
-
+    
         document.body.appendChild(container);
-
+    
         textinputs.push(textInputObj);
-        textareaNodes.push(textarea);
-
+    
         // draw(tempImg, canvas, canvas.getContext('2d'));
         // drawText(canvas.getContext('2d'), textinputs);
-
+    
         // console.log(textinputs);
-
+    
         // textarea.style.resize = 'none';
         // textarea.style.overflow = 'hidden';
         // textarea.style.minHeight = '50px';
         // textarea.cols = '840';
         // textarea.style.maxHeight = '100px';
-
+    
         console.log('creating > ', textarea.style.top, textarea.style.left);
-
+    
         function getTextWidth(text, font) {
             // if given, use cached canvas for better performance
             // else, create new canvas
@@ -814,15 +779,15 @@ export function useCanvas() {
             var metrics = context.measureText(text);
             return metrics.width;
         };
-
+    
         containerCenter = getCenter(container);
-
+        
         rotateDiv.addEventListener('mousedown', function (e) {
             rotateClicked = true;
             rotateDiv.style.visibility = "hidden";
             console.log(textinputs);
         });
-
+    
         document.addEventListener('mouseup', function (e) {
             rotateClicked = false;
             prevXState = undefined;
@@ -830,15 +795,15 @@ export function useCanvas() {
             rotateDiv.style.visibility = "visible";
             console.log(rotateClicked);
         })
-
+    
         document.addEventListener('mousemove', function (e) {
             if (rotateClicked) {
                 var mouseX = e.clientX,
                     mouseY = e.clientY;
-
+    
                 const angle = Math.atan2(mouseY - containerCenter.y, mouseX - containerCenter.x);
                 container.style.transform = `rotate(${angle}rad)`;
-
+    
                 for (let i = 0; i < textinputs.length; i++) {
                     if (textinputs[i].id === textarea.id) {
                         textInputObj.angle = angle;
@@ -849,12 +814,12 @@ export function useCanvas() {
                 }
             }
         });
-
+    
         function getCenter(element) {
             const { left, top, width, height } = element.getBoundingClientRect();
             return { x: left + width / 2, y: top + height / 2 }
         }
-
+    
         textarea.addEventListener('focus', function (e) {
             container.style.border = '2px solid #07c6d6';
             textarea.style.outline = 'none';
@@ -874,23 +839,23 @@ export function useCanvas() {
             for (let i = 0; i < textinputs.length; i++) {
                 if (textinputs[i].id === textarea.id) {
                     // textinputs[i].height = textarea.scrollHeight;
+                    console.log(textarea);
                     for (let j = 0; j < textarea.childNodes.length; j++) {
                         if (textarea.childNodes[j].childNodes.length > 0) {
                             // console.log(textarea.childNodes[i].childNodes);
-                            // console.log('hello 1 > ', textarea.childNodes[j].innerText === "\n" || textarea.childNodes[j].innerText === "\b" ? " " : textarea.childNodes[j].innerText);
+                            console.log('hello > ', textarea.childNodes[j]);
                             if (j === 0) {
-                                textinputs[i].text = textarea.childNodes[j].innerText === "\n" || textarea.childNodes[j].innerText === "\b" ? " " : textarea.childNodes[j].innerText;
+                                textinputs[i].text = textarea.childNodes[j].innerText ?? " ";
                             } else {
-                                textinputs[i].text += '\n' + (textarea.childNodes[j].innerText === "\n" || textarea.childNodes[j].innerText === "\b" ? " " : textarea.childNodes[j].innerText);
+                                textinputs[i].text += '\n' + (textarea.childNodes[j].innerText ?? " ");
                             }
                         } else {
-                            // console.log('hello 2 > ', textarea.childNodes[j].nodeValue === "\n" || textarea.childNodes[j].nodeValue === "\b" ? " " : textarea.childNodes[j].nodeValue);
+                            console.log('hello > ', textarea.childNodes[j]);
                             if (j === 0) {
-                                textinputs[i].text = textarea.childNodes[j].nodeValue === "\n" || textarea.childNodes[j].nodeValue === "\b" ? " " : textarea.childNodes[j].nodeValue;
+                                textinputs[i].text = textarea.childNodes[j].nodeValue ?? " ";
                             } else {
-                                textinputs[i].text += '\n' + (textarea.childNodes[j].nodeValue === "\n" || textarea.childNodes[j].nodeValue === "\b" ? " " : textarea.childNodes[j].nodeValue);
+                                textinputs[i].text += '\n' + (textarea.childNodes[j].nodeValue ?? " ");
                             }
-                            // console.log( textinputs[i].text);
                         }
                     }
                     // draw(tempImg, canvas, canvas.getContext('2d'));
@@ -899,16 +864,9 @@ export function useCanvas() {
                 }
             }
         });
-
+    
         textarea.addEventListener('mousedown', e => {
             mouseDownOnTextArea = true;
-            for (let i = 0; i < textareaNodes.length; i++) {
-                if (textareaNodes[i].id === textarea.id) {
-                    console.log('matched');
-                    setSelectedTextIndex(i);
-                    break;
-                }
-            }
             prevXState = undefined;
             prevYState = undefined;
             // mouseDownOnTextarea(e, textarea, canvas);
@@ -916,7 +874,7 @@ export function useCanvas() {
             console.log('mouse down > ', textinputs);
             textarea.removeEventListener('mousemove', dragTextarea);
         });
-
+    
         textarea.addEventListener('mouseup', e => {
             mouseDownOnTextArea = false;
             prevXState = undefined;
@@ -925,7 +883,7 @@ export function useCanvas() {
             console.log('mouse up');
             // textarea.removeEventListener('mouseup', stopDrag);
         });
-
+    
         document.addEventListener('mouseup', e => {
             mouseDownOnTextArea = false;
             prevXState = undefined;
@@ -934,25 +892,27 @@ export function useCanvas() {
             console.log('mouse up');
             // textarea.removeEventListener('mouseup', stopDrag);
         });
-
+    
         textarea.addEventListener('mousemove', e => {
             if (document.activeElement !== textarea)
                 textarea.style.cursor = "pointer";
-            if (!rotateClicked)
+            if(!rotateClicked)
                 dragTextarea(e);
             // console.log('mouse move > ', textInputObj);
         });
-
+    
         textarea.addEventListener('mouseover', e => {
             console.log('mouseover');
         });
-
+    
+        textareaNodes.push(textarea);
+    
         function dragTextarea(e) {
             console.log('drag');
             if (mouseDownOnTextArea) {
                 var mouseX = e.clientX - canvas.offsetLeft,
                     mouseY = e.clientY - canvas.offsetTop;
-
+    
                 if (prevXState === undefined || prevYState === undefined) {
                     prevXState = mouseX;
                     prevYState = mouseY;
@@ -972,7 +932,7 @@ export function useCanvas() {
                     //     newTopOfTextarea = canvas.offsetTop - (prevYState - mouseY);
                     // }
                     // console.log(newTopOfTextarea, newLeftOfTextarea);
-
+    
                     var dx = mouseX - prevXState;
                     var dy = mouseY - prevYState;
                     var newLeftOfTextarea = container.offsetLeft + dx;
@@ -981,9 +941,9 @@ export function useCanvas() {
                     container.style.left = newLeftOfTextarea + 'px';
                     prevXState = mouseX;
                     prevYState = mouseY;
-
+    
                     containerCenter = getCenter(container);
-
+    
                     for (let i = 0; i < textinputs.length; i++) {
                         if (textinputs[i].id === textarea.id) {
                             textinputs[i].x = newLeftOfTextarea;
@@ -1006,40 +966,38 @@ export function useCanvas() {
                 }
             };
         }
-
+    
         canvas.addEventListener('mousedown', e => {
-            var mouseX = e.clientX - canvas.offsetLeft - document.scrollX,
-                mouseY = e.clientY - canvas.offsetTop + document.scrollY;
-
+            var mouseX = e.clientX - canvas.offsetLeft,
+                mouseY = e.clientY - canvas.offsetTop;
+    
             var taTopX = textarea.offsetLeft;
             var taBottomX = taTopX + textarea.offsetHeight;
             var taTopY = taTopX + textarea.offsetWidth;
             var taBottomY = taBottomX + textarea.offsetWidth;
-
+    
             if (!hitTestTextarea(mouseX, mouseY)) {
                 console.log('hit textarea');
                 container.style.borderWidth = '0px';
-                setShowToolbar(false);
-                setSelectedTextIndex(-1);
             }
-
+    
             // console.log(taTopX, taTopY, taBottomX, taBottomY);
         });
-
+    
         function hitTestTextarea(mouseX, mouseY) {
             var taTopX = container.offsetLeft;
             var taTopY = container.offsetTop;
             var taRight = container.offsetWidth;
             var taBottom = container.offsetHeight;
-
+    
             if (mouseX >= taTopX && mouseX <= taRight && mouseY >= taTopY && mouseY <= taBottom) {
                 return true;
             }
-
+    
             return false;
         }
     }
-
+    
     function mouseDownOnTextarea(e, textarea, canvas) {
         console.log('hit mouse down');
         var x = textarea.offsetLeft - e.clientX,
@@ -1060,11 +1018,11 @@ export function useCanvas() {
     return {
         canvasRef,
         imageRef,
+        // text,
+        // setText,
         setSelectedImg,
         addTextArea,
         drawTextForDownload,
-        canvasBgColor,
-        setCanvasBgColor,
         setTextColor,
         textColor,
         showToolbar,
